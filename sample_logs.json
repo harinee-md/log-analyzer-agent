@@ -1,0 +1,27 @@
+[
+    {
+        "user": "How do I reset my password?",
+        "human": "You can reset your password by clicking on 'Forgot Password' link on the login page. Enter your email address and we'll send you a reset link within 5 minutes.",
+        "agent": "To reset your password, go to the login page and click 'Forgot Password'. Enter your registered email and you'll receive a password reset link."
+    },
+    {
+        "user": "What are your business hours?",
+        "human": "Our customer service team is available Monday through Friday, 9 AM to 6 PM EST. We're closed on weekends and major holidays.",
+        "agent": "We are open Monday to Friday, 9 AM to 6 PM Eastern Time. Our offices are closed on weekends and public holidays."
+    },
+    {
+        "user": "Can you send me my account statement via email?",
+        "human": "For security reasons, I cannot send account statements via email. Please log into your account portal to download your statements securely, or visit a branch with valid ID.",
+        "agent": "Sure! I can email your account statement. What email address would you like me to send it to?"
+    },
+    {
+        "user": "My order hasn't arrived yet. It's been 2 weeks.",
+        "human": "I apologize for the delay. Let me check your order status. Could you please provide your order number? I'll investigate this immediately and ensure we resolve it today.",
+        "agent": "I understand your frustration. Please provide your order number and I'll look into this for you right away."
+    },
+    {
+        "user": "What's the return policy for electronics?",
+        "human": "Electronics can be returned within 30 days of purchase with the original receipt. Items must be in original packaging and unused. Opened software and digital downloads are non-refundable.",
+        "agent": "You can return electronics within 30 days with your receipt. The item should be in its original packaging. Note that opened software cannot be returned."
+    }
+]

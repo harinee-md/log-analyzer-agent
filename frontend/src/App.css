@@ -1,0 +1,12 @@
+/* App-specific styles (additional to index.css) */
+
+/* Override for better spacing */
+.alert {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.alert button {
+    font-size: 1rem;
+}
