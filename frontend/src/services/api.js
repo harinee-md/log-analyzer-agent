@@ -73,4 +73,36 @@ export const exportToExcel = async (fileId) => {
     return URL.createObjectURL(blob);
 };
 
+// ==========================================
+// PIPELINE APIs (Hybrid Rule + LLM)
+// ==========================================
+
+export const analyzePipeline = async (file, useLlm = true) => {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await api.post(`/pipeline/analyze?use_llm=${useLlm}`, formData, {
+        headers: {
+            'Content-Type': 'multipart/form-data',
+        },
+    });
+
+    return response.data;
+};
+
+export const getPipelineResults = async (fileId) => {
+    const response = await api.get(`/pipeline/${fileId}/results`);
+    return response.data;
+};
+
+export const getScenarioBreakdown = async (fileId) => {
+    const response = await api.get(`/pipeline/${fileId}/scenarios`);
+    return response.data;
+};
+
+export const getLabelDistribution = async (fileId) => {
+    const response = await api.get(`/pipeline/${fileId}/labels`);
+    return response.data;
+};
+
 export default api;

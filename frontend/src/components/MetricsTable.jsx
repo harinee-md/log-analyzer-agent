@@ -84,7 +84,7 @@ const MetricsTable = ({ metrics, filename, isLoading, onExport, isExporting }) =
                 </div>
             </div>
 
-            <div className="metrics-table-container">
+            <div className="metrics-table-container" style={{ maxHeight: '600px', overflowY: 'auto' }}>
                 <table className="metrics-table">
                     <thead>
                         <tr>

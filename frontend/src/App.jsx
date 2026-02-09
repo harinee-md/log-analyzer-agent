@@ -3,10 +3,8 @@ import FileUpload from './components/FileUpload';
 import HistorySidebar from './components/HistorySidebar';
 import MetricsTable from './components/MetricsTable';
 import {
-    uploadFile,
+    analyzePipeline,
     getUploadHistory,
-    evaluateFile,
-    getEvaluationResults,
     exportToExcel
 } from './services/api';
 import './App.css';
@@ -15,10 +13,9 @@ function App() {
     // State
     const [history, setHistory] = useState([]);
     const [selectedFile, setSelectedFile] = useState(null);
-    const [metrics, setMetrics] = useState([]);
-    const [isUploading, setIsUploading] = useState(false);
-    const [isEvaluating, setIsEvaluating] = useState(false);
-    const [isExporting, setIsExporting] = useState(false);
+    const [pipelineResults, setPipelineResults] = useState(null);
+    const [isProcessing, setIsProcessing] = useState(false);
+    const [useLlm, setUseLlm] = useState(true);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
 
@@ -37,90 +34,70 @@ function App() {
     };
 
     const handleUpload = async (file) => {
-        setIsUploading(true);
+        setIsProcessing(true);
         setError(null);
         setSuccess(null);
+        setPipelineResults(null);
 
         try {
-            const result = await uploadFile(file);
-            setSuccess(`Successfully uploaded ${result.entry_count} log entries`);
-            await loadHistory();
+            const result = await analyzePipeline(file, useLlm);
+            setPipelineResults(result);
+            setSuccess(`Successfully analyzed ${result.filename} (${result.total_conversations} conversations)`);
 
-            // Auto-select the uploaded file
+            // Set selected file context
             setSelectedFile({
-                id: result.id,
+                id: result.file_id,
                 filename: result.filename,
-                entry_count: result.entry_count
+                entry_count: result.total_conversations
             });
-            setMetrics([]);
+
+            await loadHistory();
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to upload file');
+            setError(err.response?.data?.detail || 'Failed to analyze file');
         } finally {
-            setIsUploading(false);
+            setIsProcessing(false);
         }
     };
 
-    const handleSelectFile = async (file) => {
-        setSelectedFile(file);
-        setMetrics([]);
+    const handleSelectFile = async (item) => {
+        // For now just set selected, in real app we'd fetch cached results
+        setSelectedFile(item);
         setError(null);
-        setSuccess(null);
-
-        // Check if already evaluated
-        try {
-            const result = await getEvaluationResults(file.id);
-            if (result && result.metrics) {
-                setMetrics(result.metrics);
-            }
-        } catch (err) {
-            // Not evaluated yet, that's fine
-        }
-    };
-
-    const handleEvaluate = async () => {
-        if (!selectedFile) return;
-
-        setIsEvaluating(true);
-        setError(null);
-        setSuccess(null);
-
-        try {
-            const result = await evaluateFile(selectedFile.id);
-            setMetrics(result.metrics);
-            setSuccess('Evaluation completed successfully!');
-        } catch (err) {
-            setError(err.response?.data?.detail || 'Evaluation failed. Make sure GOOGLE_API_KEY is set.');
-        } finally {
-            setIsEvaluating(false);
-        }
+        // We'd need an API to get cached pipeline results here
+        // setPipelineResults(cachedResults); 
     };
 
     const handleExport = async () => {
         if (!selectedFile) return;
 
-        setIsExporting(true);
-        setError(null);
-
         try {
             const blobUrl = await exportToExcel(selectedFile.id);
-
-            // Create download link
             const link = document.createElement('a');
             link.href = blobUrl;
-            link.download = `evaluation_${selectedFile.filename.replace(/\.[^/.]+$/, '')}.xlsx`;
+            link.download = `analysis_${selectedFile.filename.replace(/\.[^/.]+$/, '')}.xlsx`;
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
-
-            // Clean up blob URL
             URL.revokeObjectURL(blobUrl);
-
             setSuccess('Excel file downloaded successfully!');
         } catch (err) {
-            setError(err.response?.data?.detail || 'Failed to export Excel file');
-        } finally {
-            setIsExporting(false);
+            setError('Failed to export Excel file');
         }
+    };
+
+    // Helper to render label distribution
+    const renderLabelDist = (dist) => {
+        if (!dist) return null;
+        return (
+            <div className="label-dist">
+                {Object.entries(dist).map(([label, count]) => (
+                    <div key={label} className={`label-badge label-${label}`}>
+                        <span className="label-name">{label}</span>
+                        <span className="label-count">{count}</span>
+                    </div>
+                ))}
+            </div>
+        );
     };
 
     return (
@@ -136,79 +113,88 @@ function App() {
                 <header className="content-header">
                     <h1 className="page-title">Log Analyzer Agent</h1>
                     <p className="page-subtitle">
-                        AI-powered evaluation of chatbot logs using 18 comprehensive metrics
+                        Hybrid Evaluation Pipeline (Rule-Based + LLM)
                     </p>
+                    <div className="pipeline-controls">
+                        <label className="toggle-switch">
+                            <input
+                                type="checkbox"
+                                checked={useLlm}
+                                onChange={(e) => setUseLlm(e.target.checked)}
+                            />
+                            <span className="toggle-slider"></span>
+                            <span className="toggle-label">Use LLM for Semantic Metrics</span>
+                        </label>
+                    </div>
                 </header>
 
                 {/* Alerts */}
                 {error && (
                     <div className="alert alert-error">
-                        <span>⚠️</span>
-                        <span>{error}</span>
-                        <button
-                            onClick={() => setError(null)}
-                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-                        >
-                            ✕
-                        </button>
+                        <span>⚠️</span><span>{error}</span>
+                        <button onClick={() => setError(null)}>✕</button>
                     </div>
                 )}
 
                 {success && (
                     <div className="alert alert-success">
-                        <span>✓</span>
-                        <span>{success}</span>
-                        <button
-                            onClick={() => setSuccess(null)}
-                            style={{ marginLeft: 'auto', background: 'none', border: 'none', color: 'inherit', cursor: 'pointer' }}
-                        >
-                            ✕
-                        </button>
+                        <span>✓</span><span>{success}</span>
+                        <button onClick={() => setSuccess(null)}>✕</button>
                     </div>
                 )}
 
                 {/* File Upload */}
                 <FileUpload
                     onUpload={handleUpload}
-                    isUploading={isUploading}
+                    isUploading={isProcessing}
                 />
 
-                {/* Selected File Actions */}
-                {selectedFile && !isEvaluating && metrics.length === 0 && (
-                    <div className="alert alert-info">
-                        <span>📄</span>
-                        <span>
-                            <strong>{selectedFile.filename}</strong> selected ({selectedFile.entry_count} entries)
-                        </span>
-                        <button
-                            className="btn btn-primary"
-                            onClick={handleEvaluate}
-                            style={{ marginLeft: 'auto' }}
-                        >
-                            🚀 Evaluate Metrics
-                        </button>
-                    </div>
-                )}
+                {/* Results Dashboard */}
+                {pipelineResults && (
+                    <div className="results-dashboard">
+                        {/* Summary Cards */}
+                        <div className="summary-cards">
+                            <div className="metric-card score-card">
+                                <h3>Composite Score</h3>
+                                <div className="score-value">
+                                    {pipelineResults.overall.composite_score}
+                                </div>
+                                <div className="score-grade">
+                                    Grade: {pipelineResults.overall.quality_grade || 'B'}
+                                </div>
+                            </div>
 
-                {/* Metrics Display */}
-                {(selectedFile && (isEvaluating || metrics.length > 0)) && (
-                    <MetricsTable
-                        metrics={metrics}
-                        filename={selectedFile.filename}
-                        isLoading={isEvaluating}
-                        onExport={handleExport}
-                        isExporting={isExporting}
-                    />
-                )}
+                            <div className="metric-card">
+                                <h3>Conversations</h3>
+                                <div className="metric-value">
+                                    {pipelineResults.total_conversations}
+                                </div>
+                                <div className="metric-sub">
+                                    Analyzed
+                                </div>
+                            </div>
 
-                {/* Empty State */}
-                {!selectedFile && (
-                    <div className="metrics-section">
-                        <div className="empty-state">
-                            <div className="empty-state-icon">📊</div>
-                            <h3 className="empty-state-title">Ready to Analyze</h3>
-                            <p>Upload a log file or select from history to view evaluation metrics</p>
+                            <div className="metric-card">
+                                <h3>Binary Labels</h3>
+                                {renderLabelDist(pipelineResults.overall.label_distribution)}
+                            </div>
                         </div>
+
+
+
+                        {/* Detailed Metrics Table */}
+                        <div className="section-header">
+                            <h2>Detailed Metrics</h2>
+                            <button className="btn btn-secondary" onClick={handleExport}>
+                                Export Excel
+                            </button>
+                        </div>
+                        <MetricsTable
+                            metrics={Object.entries(pipelineResults.overall.metrics).map(
+                                ([name, value]) => ({ metric_name: name, metric_value: value })
+                            )}
+                            filename={pipelineResults.filename}
+                        />
                     </div>
                 )}
             </main>

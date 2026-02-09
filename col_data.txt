@@ -1,0 +1,22 @@
+=== COLUMN: example.multi_turn_conv ===
+"Bot: PacMan maril record a transcript of this chat. For more information, please see our Privacy Notice: https://www.PacMan.com/privacy
+
+Welcome to PacMan. How can I help you today?
+
+User: I need help with accessing my billing history and obtaining invoices and receipts from my account.
+
+Bot: Iâ€™d be happy to check that for you! To protect your account security, Iâ€™ll need you to sign in first so I can access your specific billing records.
+
+Bot: {""quickReplies"":{""title"":"" "",""options"":[{""title"":""Sign in with PacMan"",""buttonDefault"":""text"",""text"":""Sign in with PacMan""}]},""maskUserInput"":false,""hideInput"":false,""targetLanguage"":""en""}
+
+User: Okay, I'll sign in now using the Sign in with PacMan option. Let me proceed with that.
+
+Bot: Please select the invoice for which you are looking for details.
+
+Bot: {""cards"":[{""title"":"" "",""description"":""<strongTitle</strong : Invoice INV1666056\n<strongDate</strong : August, 1 2024\n<strongStatus : Paid\nTotal : $0.00</strong"",""text"":""<strongTitle</strong : Invoice INV122346\n<strongDate</strong : August, 1 2024\n<strongStatus : Paid\nTotal : $0.00</strong"",""actions"":[{""buttonDefault"":""text"",""title"":""Select Invoice"",""text"":""8ehcnewfc00edcn039wjd""}]},{""title"":"" "",""description"":""<strongTitle</strong : Invoice INV22334\n<strongDate</strong : August, 6 2024\n<strongStatus : Unpaid\nTotal : $2222.77</strong"",""text"":""<strongTitle</strong : Invoice INV22334\n<strongDate</strong : August, 6 2024\n<strongStatus : Unpaid\nTotal : $2222.77</strong"",""actions"":[{""buttonDefault"":""text"",""title"":""Select Invoice"",""text"":""7bdjcdchd8hdcid""}]},{""title"":"" "",""description"":""<strongTitle</strong : Invoice INV223344\n<strongDate</strong : juny, 4 2024\n<strongStatus : Paid\nTotal : $232.12</strong"",""text"":""<strongTitle</strong : Invoice INV223344\n<strongDate</strong : juny, 4 2024\n<strongStatus : Paid\nTotal : $232.12</strong"",""actions"":[{""buttonDefault"":""
+
+=== COLUMN: example.case_intent ===
+Customer requested invoices and receipts from their account. Needed guidance on accessing billing history.
+
+=== COLUMN: example.ground_truth_emails ===
+{"case_number": "07717sep12", "subject": "Customer requested invoices and receipts from their account. Needed guidance on accessing billing history.", "description": "Customer requested invoices and receipts from their account. Needed guidance on accessing billing history. Confirmed desire to connect with live support and provided contact details. No frustrations expressed.", "emails": [{"email_index": 1, "conversation_id": null, "body": "Case Number: <PHONE\nHello Joanna,\nThank you for contacting PacMan Customer Support. My name is John, and I will be your point of contact today.\n\nAs requested, here is a copy of your invoices from July 7, 2024, and July 7, 2024. Please see the attached files. Additionally, you've a refund of 17 EUR associated with this invoice, <ID, which was processed on July 10, 2024.\n\nI hope this helps.\nBest regards,\nJohn Nobel | PacMan Customer Support\nPacMan.com\nref:!00B200bT4.!500Ub0mdMGO:ref"}, {"email_index": 2, "conversation_id": null, "body": "Case 
