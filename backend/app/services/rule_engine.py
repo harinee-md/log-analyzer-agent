@@ -38,6 +38,7 @@ class RuleMetrics:
     intent_matched: bool # Intent Accuracy
     entities_found: List[str]
     order_numbers: List[str]
+    metric_reasoning: Dict[str, str] = None  # Explanations for each metric
 
 
 class RuleEngine:
@@ -157,15 +158,16 @@ class RuleEngine:
             matches.extend(found)
         return list(set(matches))
     
-    def count_turns(self, turns: List[ConversationTurn]) -> Tuple[int, int, int]:
-        """Count total, user, and bot turns"""
+    def count_turns(self, turns: List[ConversationTurn]) -> Tuple[int, int, int, str]:
+        """Count total, user, and bot turns. Returns (total, user, bot, reasoning)"""
         total = len(turns)
         user_turns = sum(1 for t in turns if t.role == "User")
         bot_turns = sum(1 for t in turns if t.role == "Bot")
-        return total, user_turns, bot_turns
+        reasoning = f"Counted {total} turns (User: {user_turns}, Bot: {bot_turns})."
+        return total, user_turns, bot_turns, reasoning
     
-    def detect_pii(self, text: str) -> Tuple[int, List[str]]:
-        """Detect PII patterns in text"""
+    def detect_pii(self, text: str) -> Tuple[int, List[str], str]:
+        """Detect PII patterns in text. Returns (count, types, reasoning)"""
         found_types = []
         total_count = 0
         
@@ -175,16 +177,22 @@ class RuleEngine:
                 found_types.append(pii_type)
                 total_count += len(matches)
         
-        return total_count, found_types
+        if total_count > 0:
+            reasoning = f"Found {total_count} PII instances: {', '.join(found_types)}."
+        else:
+            reasoning = "No PII detected in the conversation."
+        
+        return total_count, found_types, reasoning
     
-    def compute_customer_effort(self, turns: List[ConversationTurn]) -> float:
+    def compute_customer_effort(self, turns: List[ConversationTurn]) -> Tuple[float, str]:
         """
         Compute customer effort score (0-1, lower is better).
+        Returns (score, reasoning)
         """
         user_turns = [t for t in turns if t.role == "User"]
         
         if not user_turns:
-            return 0.0
+            return 0.0, "No user turns found, minimal effort required."
         
         # Base effort from turn count (normalized, max 10 turns)
         turn_effort = min(len(user_turns) / 10.0, 1.0)
@@ -199,10 +207,11 @@ class RuleEngine:
         # Combine factors
         effort_score = (turn_effort * 0.6) + (question_effort * 0.4)
         
-        return round(effort_score, 3)
+        reasoning = f"User made {len(user_turns)} turns with {question_count} questions. Effort based on turn count ({turn_effort:.2f}) and question frequency ({question_effort:.2f})."
+        return round(effort_score, 3), reasoning
     
-    def detect_resolution(self, turns: List[ConversationTurn]) -> bool:
-        """Detect if conversation appears resolved"""
+    def detect_resolution(self, turns: List[ConversationTurn]) -> Tuple[bool, str]:
+        """Detect if conversation appears resolved. Returns (detected, reasoning)"""
         # Check last few turns for resolution keywords
         last_turns = turns[-3:] if len(turns) >= 3 else turns
         
@@ -210,26 +219,31 @@ class RuleEngine:
             text_lower = turn.message.lower()
             for keyword in self.RESOLUTION_KEYWORDS:
                 if keyword in text_lower:
-                    return True
+                    reasoning = f"Detected resolution keyword '{keyword}' in last {len(last_turns)} turns."
+                    return True, reasoning
         
-        return False
+        reasoning = f"No resolution keywords found in last {len(last_turns)} turns."
+        return False, reasoning
     
-    def detect_escalation(self, turns: List[ConversationTurn]) -> bool:
-        """Detect if conversation was escalated"""
+    def detect_escalation(self, turns: List[ConversationTurn]) -> Tuple[bool, str]:
+        """Detect if conversation was escalated. Returns (detected, reasoning)"""
         full_text = ' '.join(t.message.lower() for t in turns)
         
         for keyword in self.ESCALATION_KEYWORDS:
             if keyword in full_text:
-                return True
+                reasoning = f"Detected escalation keyword '{keyword}' in conversation."
+                return True, reasoning
         
-        return False
+        reasoning = "No escalation keywords detected."
+        return False, reasoning
     
-    def compute_context_retention(self, turns: List[ConversationTurn]) -> float:
+    def compute_context_retention(self, turns: List[ConversationTurn]) -> Tuple[float, str]:
         """
         Compute context retention score based on entity reuse.
+        Returns (score, reasoning)
         """
         if len(turns) < 2:
-            return 1.0  # No context to retain
+            return 1.0, "Insufficient turns to measure context retention."
         
         user_entities = set()
         bot_references = 0
@@ -247,10 +261,11 @@ class RuleEngine:
                         bot_references += 1
         
         if total_user_entities == 0:
-            return 1.0
+            return 1.0, "No user entities found to track."
         
         retention_score = min(bot_references / max(len(user_entities), 1), 1.0)
-        return round(retention_score, 3)
+        reasoning = f"Bot referenced {bot_references}/{len(user_entities)} user entities."
+        return round(retention_score, 3), reasoning
         
     def check_intent_match(self, case_intent: str, gt_intent: str) -> bool:
         """
@@ -274,36 +289,66 @@ class RuleEngine:
         # Parse conversation
         turns = self.parse_conversation(multi_turn_text)
         
-        # Compute metrics
-        total, user_count, bot_count = self.count_turns(turns)
+        # Initialize reasoning dictionary
+        metric_reasoning = {}
+        
+        # Compute metrics with reasoning
+        total, user_count, bot_count, turn_reasoning = self.count_turns(turns)
+        metric_reasoning["turn_count"] = turn_reasoning
         
         # Full text
         full_text = ' '.join(t.message for t in turns)
-        pii_count, pii_types = self.detect_pii(full_text)
+        pii_count, pii_types, pii_reasoning = self.detect_pii(full_text)
+        metric_reasoning["pii_exposure_count"] = pii_reasoning
         
         # Entity extraction
         entities = self.extract_entities(full_text)
         order_numbers = self.detect_order_numbers(full_text)
         
+        # Context retention
+        context_score, context_reasoning = self.compute_context_retention(turns)
+        metric_reasoning["context_retention_score"] = context_reasoning
+        
+        # Customer effort
+        effort_score, effort_reasoning = self.compute_customer_effort(turns)
+        metric_reasoning["customer_effort_score"] = effort_reasoning
+        
+        # Resolution
+        resolution, resolution_reasoning = self.detect_resolution(turns)
+        metric_reasoning["resolution_detected"] = resolution_reasoning
+        
+        # Escalation
+        escalation, escalation_reasoning = self.detect_escalation(turns)
+        metric_reasoning["escalation_detected"] = escalation_reasoning
+        
+        # Intent accuracy
+        intent_matched = self.check_intent_match(case_intent, gt_intent)
+        if not case_intent or not gt_intent:
+            metric_reasoning["intent_accuracy"] = "No intent information provided for comparison."
+        elif intent_matched:
+            metric_reasoning["intent_accuracy"] = f"Case intent '{case_intent[:50]}' matches ground truth intent."
+        else:
+            metric_reasoning["intent_accuracy"] = f"Case intent '{case_intent[:50]}' does not match ground truth intent."
+        
         return RuleMetrics(
             turn_count=total,
             user_turn_count=user_count,
             bot_turn_count=bot_count,
-            context_retention_score=self.compute_context_retention(turns),
+            context_retention_score=context_score,
             pii_exposure_count=pii_count,
             pii_types=pii_types,
-            customer_effort_score=self.compute_customer_effort(turns),
-            resolution_detected=self.detect_resolution(turns),
-            escalation_detected=self.detect_escalation(turns),
-            # Latency removed
-            intent_matched=self.check_intent_match(case_intent, gt_intent),
+            customer_effort_score=effort_score,
+            resolution_detected=resolution,
+            escalation_detected=escalation,
+            intent_matched=intent_matched,
             entities_found=entities,
-            order_numbers=order_numbers
+            order_numbers=order_numbers,
+            metric_reasoning=metric_reasoning
         )
     
     def to_dict(self, metrics: RuleMetrics) -> Dict[str, Any]:
         """Convert RuleMetrics to dictionary"""
-        return {
+        result = {
             "turn_count": metrics.turn_count,
             "user_turn_count": metrics.user_turn_count,
             "bot_turn_count": metrics.bot_turn_count,
@@ -313,8 +358,12 @@ class RuleEngine:
             "customer_effort_score": metrics.customer_effort_score,
             "resolution_detected": metrics.resolution_detected,
             "escalation_detected": metrics.escalation_detected,
-            # Latency removed
             "intent_accuracy": 100.0 if metrics.intent_matched else 0.0,
             "entities_found": metrics.entities_found,
             "order_numbers": metrics.order_numbers
         }
+        return result
+    
+    def get_reasoning(self, metrics: RuleMetrics) -> Dict[str, str]:
+        """Get reasoning dictionary from RuleMetrics"""
+        return metrics.metric_reasoning if metrics.metric_reasoning else {}

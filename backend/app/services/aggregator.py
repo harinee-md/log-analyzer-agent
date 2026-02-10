@@ -34,6 +34,7 @@ class ConversationMetrics:
     binary_label: str
     composite_score: float
     quality_grade: str
+    metric_reasoning: Dict[str, str] = None  # Explanations for each metric
 
 
 @dataclass
@@ -129,7 +130,8 @@ class Aggregator:
         llm_metrics: Dict[str, Any],
         normalized_metrics: Dict[str, float],
         binary_label: str,
-        composite_score: float
+        composite_score: float,
+        metric_reasoning: Dict[str, str] = None
     ) -> ConversationMetrics:
         """Create conversation-level aggregation."""
         from .metric_normalizer import MetricNormalizer
@@ -146,7 +148,8 @@ class Aggregator:
             aggregated_metrics=clean_metrics,
             binary_label=binary_label,
             composite_score=composite_score,
-            quality_grade=normalizer.get_quality_grade(composite_score)
+            quality_grade=normalizer.get_quality_grade(composite_score),
+            metric_reasoning=metric_reasoning or {}
         )
     
     def aggregate_by_scenario(
@@ -280,7 +283,8 @@ class Aggregator:
                     "label": c.binary_label,
                     "composite_score": c.composite_score,
                     "grade": c.quality_grade,
-                    "metrics": c.aggregated_metrics
+                    "metrics": c.aggregated_metrics,
+                    "reasoning": c.metric_reasoning if c.metric_reasoning else {}
                 }
                 for c in results.conversation_level
             ]

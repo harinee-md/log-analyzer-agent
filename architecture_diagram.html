@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Log Analyzer Agent - Architecture Diagram</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+            background-color: #f4f6f8;
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 30px;
+        }
+
+        .container {
+            background: white;
+            padding: 40px;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            max-width: 100%;
+            overflow-x: auto;
+        }
+    </style>
+    <script type="module">
+        import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+        mermaid.initialize({ startOnLoad: true, theme: 'default' });
+    </script>
+</head>
+
+<body>
+    <h1>Log Analyzer Agent - System Architecture</h1>
+    <div class="container">
+        <div class="mermaid">
+            graph TD
+            subgraph Client [Frontend - React]
+            UI[User Interface]
+            Upload[Log Upload Component]
+            Dashboard[Results Dashboard]
+            end
+
+            subgraph Backend [Backend - FastAPI]
+            API[API Router]
+
+            subgraph Pipeline [Log Analyzer Pipeline]
+            Orchestrator[Pipeline Orchestrator]
+
+            subgraph DataProc [Data Processing]
+            Ingest[Log Parser]
+            Norm[Data Normalizer]
+            end
+
+            subgraph Engines [Evaluation Engines]
+            RuleBased["Rule Engine\n(Regex/Heuristic)"]
+            LLMBased["Metric Evaluator\n(LangChain + OpenAI)"]
+            end
+
+            subgraph PostProc [Post-Processing]
+            Labeler[Binary Labeler]
+            Scorer[Metric Normalizer]
+            Agg[Aggregator]
+            end
+            end
+
+            Cache[(In-Memory Cache)]
+            end
+
+            subgraph External [External Services]
+            OpenAI["OpenAI API\n(GPT-4o-mini)"]
+            end
+
+            UI -->|1. Upload File| Upload
+            Upload -->|2. POST /analyze| API
+            API -->|3. Init| Orchestrator
+
+            Orchestrator -->|4. Raw Data| Ingest
+            Ingest -->|5. DataFrame| Norm
+            Norm -->|6. Normalized Convos| Orchestrator
+
+            Orchestrator -->|7. Multi-Turn Text| RuleBased
+            Orchestrator -->|8. Log Entries| LLMBased
+
+            LLMBased <-->|9. API Calls| OpenAI
+
+                RuleBased -->|10. Rule Metrics| Orchestrator
+                LLMBased -->|11. Semantic Metrics| Orchestrator
+
+                Orchestrator -->|12. Combined Metrics| Labeler
+                Labeler -->|13. TP/TN/FP/FN| Scorer
+                Scorer -->|14. Composite Score| Agg
+
+                Agg -->|15. JSON Result| Orchestrator
+                Orchestrator -->|16. Cache Result| Cache
+                API -->|17. Return JSON| Dashboard
+        </div>
+    </div>
+</body>
+
+</html>

@@ -13,7 +13,7 @@ Chains all pipeline stages together:
 """
 
 import os
-from typing import List, Dict, Any, Optional
+from typing import List, Dict, Any, Optional, Tuple
 import pandas as pd
 
 from .data_normalizer import DataNormalizer, NormalizedConversation
@@ -122,6 +122,7 @@ class LogAnalyzerPipeline:
             gt_intent=subject
         )
         rule_dict = self.rule_engine.to_dict(rule_metrics)
+        rule_reasoning = self.rule_engine.get_reasoning(rule_metrics)
         
         # Get bot response for comparison
         bot_messages = self.normalizer.get_bot_messages(conv.turns)
@@ -129,14 +130,19 @@ class LogAnalyzerPipeline:
         
         # Stage 5: Hybrid Metric Computation
         llm_dict = {}
+        llm_reasoning = {}
         if use_llm_metrics and self.evaluator:
-            llm_dict = self._compute_llm_metrics(conv, gt_text)
+            llm_dict, llm_reasoning = self._compute_llm_metrics(conv, gt_text)
         else:
             # Use default scores when LLM is not available
             llm_dict = self._get_default_llm_metrics()
+            llm_reasoning = self._get_default_llm_reasoning()
         
         # Merge rule + LLM metrics
         combined_metrics = {**rule_dict, **llm_dict}
+        
+        # Merge reasoning from rule engine and LLM
+        combined_reasoning = {**rule_reasoning, **llm_reasoning}
         
         # Stage 6: Binary Labeling
         if conv.download_action_score is not None and conv.download_intent_score is not None:
@@ -178,17 +184,18 @@ class LogAnalyzerPipeline:
             llm_metrics=llm_dict,
             normalized_metrics=normalized,
             binary_label=label_result.label.value,
-            composite_score=composite_score
+            composite_score=composite_score,
+            metric_reasoning=combined_reasoning
         )
     
     def _compute_llm_metrics(
         self,
         conv: NormalizedConversation,
         gt_text: str
-    ) -> Dict[str, Any]:
-        """Compute LLM-based semantic metrics (18-metric set)"""
+    ) -> Tuple[Dict[str, Any], Dict[str, str]]:
+        """Compute LLM-based semantic metrics (18-metric set). Returns (metrics, reasoning)."""
         if not self.evaluator:
-            return self._get_default_llm_metrics()
+            return self._get_default_llm_metrics(), self._get_default_llm_reasoning()
         
         # Get user and bot messages
         user_messages = self.normalizer.get_user_messages(conv.turns)
@@ -207,14 +214,19 @@ class LogAnalyzerPipeline:
         )
         
         metrics = {}
+        reasoning = {}
         
-        # Helper to safely executing evaluator methods
+        # Helper to safely execute evaluator methods and collect reasoning
         def safe_eval(method, key, *args):
             try:
                 result = method(*args)
+                # Collect reasoning from MetricResult.description
+                if result.description:
+                    reasoning[key] = result.description
                 return self._parse_metric_value(result.metric_value)
             except Exception as e:
                 print(f"Error computing {key}: {e}")
+                reasoning[key] = f"Error during evaluation: {str(e)}"
                 return 50.0  # Default fallback
 
         # 1. Semantic Metrics
@@ -237,7 +249,7 @@ class LogAnalyzerPipeline:
         metrics['context_retention_llm'] = safe_eval(self.evaluator.evaluate_context_retention_llm, 'context_retention_llm', conversation_history, agent_response)
         metrics['escalation_rate_llm'] = safe_eval(self.evaluator.evaluate_escalation_llm, 'escalation_rate_llm', agent_response)
         
-        return metrics
+        return metrics, reasoning
     
     def _parse_metric_value(self, value: Any) -> float:
         """Parse metric value to float"""
@@ -270,6 +282,21 @@ class LogAnalyzerPipeline:
             'refusal_correctness': 50,
             
             # Hybrid metrics excluded as they are covered by Rule Engine
+        }
+    
+    def _get_default_llm_reasoning(self) -> Dict[str, str]:
+        """Return default reasoning when LLM is not available"""
+        return {
+            'response_accuracy': 'LLM not available for evaluation.',
+            'answer_relevancy': 'LLM not available for evaluation.',
+            'completeness_score': 'LLM not available for evaluation.',
+            'clarity_score': 'LLM not available for evaluation.',
+            'tone_appropriateness': 'LLM not available for evaluation.',
+            'hallucination_rate': 'LLM not available for evaluation.',
+            'incorrect_refusal_rate': 'LLM not available for evaluation.',
+            'overconfidence': 'LLM not available for evaluation.',
+            'pii_handling_compliance': 'LLM not available for evaluation.',
+            'refusal_correctness': 'LLM not available for evaluation.',
         }
     
     def to_json(self, results: AggregatedResults) -> Dict[str, Any]:

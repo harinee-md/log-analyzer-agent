@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 from .routes import upload, metrics, export, pipeline
 
 # Load environment variables
-load_dotenv()
+load_dotenv(override=True)
 
 # Create FastAPI app
 app = FastAPI(
@@ -59,7 +59,7 @@ async def root():
 @app.get("/health")
 async def health_check():
     """Health check endpoint."""
-    api_key_set = bool(os.getenv("GOOGLE_API_KEY"))
+    api_key_set = bool(os.getenv("OPENAI_API_KEY"))
     return {
         "status": "healthy",
         "api_key_configured": api_key_set

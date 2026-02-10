@@ -43,11 +43,11 @@ async def evaluate_log_file(file_id: str, force: bool = Query(False, description
         raise HTTPException(status_code=404, detail="File not found")
     
     # Check for API key
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise HTTPException(
             status_code=500, 
-            detail="GOOGLE_API_KEY not configured. Please set the environment variable."
+            detail="OPENAI_API_KEY not configured. Please set the environment variable."
         )
     
     # Run evaluation

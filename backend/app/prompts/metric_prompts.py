@@ -5,7 +5,7 @@ Covers 11 Semantic Metrics + Hybrid Components.
 Updated to strict 18-metric list definitions.
 """
 
-from langchain.prompts import PromptTemplate
+from langchain_core.prompts import PromptTemplate
 
 
 # =============================================================================

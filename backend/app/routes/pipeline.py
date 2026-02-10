@@ -22,7 +22,7 @@ pipeline_cache: dict = {}
 
 def get_evaluator() -> Optional[MetricEvaluator]:
     """Get LLM evaluator if API key is configured"""
-    api_key = os.getenv("GOOGLE_API_KEY")
+    api_key = os.getenv("OPENAI_API_KEY")
     if api_key:
         return MetricEvaluator(api_key=api_key)
     return None
