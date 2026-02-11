@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import FileUpload from './components/FileUpload';
-import HistorySidebar from './components/HistorySidebar';
 import MetricsTable from './components/MetricsTable';
+import Dashboard from './components/Dashboard';
+import Navbar from './components/Navbar';
 import {
     analyzePipeline,
     getUploadHistory,
@@ -18,6 +19,7 @@ function App() {
     const [useLlm, setUseLlm] = useState(true);
     const [error, setError] = useState(null);
     const [success, setSuccess] = useState(null);
+    const [showDetailedMetrics, setShowDetailedMetrics] = useState(false);
 
     // Load history on mount
     useEffect(() => {
@@ -102,16 +104,11 @@ function App() {
 
     return (
         <div className="app-container">
-            <HistorySidebar
-                history={history}
-                selectedId={selectedFile?.id}
-                onSelect={handleSelectFile}
-                onRefresh={loadHistory}
-            />
+            <Navbar />
 
-            <main className="main-content">
+            <main className="main-content main-content-full">
                 <header className="content-header">
-                    <h1 className="page-title">Log Analyzer Agent</h1>
+                    <h1 className="page-title">AI Agent Evaluation Overview</h1>
                     <p className="page-subtitle">
                         Hybrid Evaluation Pipeline (Rule-Based + LLM)
                     </p>
@@ -152,49 +149,32 @@ function App() {
                 {/* Results Dashboard */}
                 {pipelineResults && (
                     <div className="results-dashboard">
-                        {/* Summary Cards */}
-                        <div className="summary-cards">
-                            <div className="metric-card score-card">
-                                <h3>Composite Score</h3>
-                                <div className="score-value">
-                                    {pipelineResults.overall.composite_score}
-                                </div>
-                                <div className="score-grade">
-                                    Grade: {pipelineResults.overall.quality_grade || 'B'}
-                                </div>
-                            </div>
+                        {/* Main Dashboard */}
+                        <Dashboard data={pipelineResults} />
 
-                            <div className="metric-card">
-                                <h3>Conversations</h3>
-                                <div className="metric-value">
-                                    {pipelineResults.total_conversations}
-                                </div>
-                                <div className="metric-sub">
-                                    Analyzed
-                                </div>
-                            </div>
-
-                            <div className="metric-card">
-                                <h3>Binary Labels</h3>
-                                {renderLabelDist(pipelineResults.overall.label_distribution)}
-                            </div>
-                        </div>
-
-
-
-                        {/* Detailed Metrics Table */}
-                        <div className="section-header">
+                        {/* Detailed Metrics Table - Collapsible */}
+                        <div className="section-header" style={{ marginTop: '3rem' }}>
                             <h2>Detailed Metrics</h2>
-                            <button className="btn btn-secondary" onClick={handleExport}>
-                                Export Excel
-                            </button>
+                            <div style={{ display: 'flex', gap: '1rem' }}>
+                                <button
+                                    className="btn btn-secondary"
+                                    onClick={() => setShowDetailedMetrics(!showDetailedMetrics)}
+                                >
+                                    {showDetailedMetrics ? 'Hide Details' : 'Show Details'}
+                                </button>
+                                <button className="btn btn-secondary" onClick={handleExport}>
+                                    Export Excel
+                                </button>
+                            </div>
                         </div>
-                        <MetricsTable
-                            metrics={Object.entries(pipelineResults.overall.metrics).map(
-                                ([name, value]) => ({ metric_name: name, metric_value: value })
-                            )}
-                            filename={pipelineResults.filename}
-                        />
+                        {showDetailedMetrics && (
+                            <MetricsTable
+                                metrics={Object.entries(pipelineResults.overall.metrics).map(
+                                    ([name, value]) => ({ metric_name: name, metric_value: value })
+                                )}
+                                filename={pipelineResults.filename}
+                            />
+                        )}
                     </div>
                 )}
             </main>
